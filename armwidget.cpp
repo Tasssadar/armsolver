@@ -10,27 +10,27 @@ ArmWidget::ArmWidget(QWidget *parent) : QWidget(parent), m_touched(false)
     ArmBuilder builder;
     builder.body(60, 110).armOffset(0, 20);
 
-    builder.bone(110)
-            .relStops(-1.7, 0)
-            .calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
-        return M_PI - (angle * -1) + 0.523599;
+    auto b0 = builder.bone(110);
+    b0.relStops(-1.7f, 0);
+    b0.calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
+        return Arm::PI - (angle * -1) + 0.523599f;
     });
 
-    builder.bone(140)
-            .relStops(0.523599, M_PI - 0.261799)
-            .absStops(-0.35, M_PI)
-            .baseRelStops(0.70, 2.80)
-            .calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
-        angle = Arm::clampAng(angle + M_PI*1.5);
-        return M_PI - (angle * -1) + 0.423599;
+    auto b1 = builder.bone(140);
+    b1.relStops(0.523599f, Arm::PI - 0.261799f)
+        .absStops(-0.35f, Arm::PI)
+        .baseRelStops(0.7f, 2.8f);
+    b1.calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
+        angle = Arm::clampAng(angle + Arm::PI*1.5f);
+        return Arm::PI - (angle * -1) + 0.423599f;
     });
 
     m_arm = builder.build();
 }
 
-void ArmWidget::resizeEvent(QResizeEvent *ev) {
+void ArmWidget::resizeEvent(QResizeEvent *) {
     const auto& def = m_arm->definition();
-    uint16_t total_len = 0;
+    Arm::CoordType total_len = 0;
     for(const auto& b : def.bones) {
         total_len = b.length;
     }

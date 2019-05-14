@@ -21,11 +21,13 @@ public:
     typedef float AngleType;
     typedef int32_t CoordType;
 
+    static const AngleType PI;
+
     struct BoneDefinition {
         BoneDefinition() {
             length = 0;
-            rel_min = abs_min = base_rel_min = -M_PI;
-            rel_max = abs_max = base_rel_max = M_PI;
+            rel_min = abs_min = base_rel_min = -PI;
+            rel_max = abs_max = base_rel_max = PI;
             calcServoAng = [](AngleType angle) -> AngleType { return angle; };
         }
 
@@ -104,6 +106,7 @@ class ArmBuilder;
 class BoneBuilder {
     friend class ArmBuilder;
 public:
+    BoneBuilder(BoneBuilder&& other);
     ~BoneBuilder();
 
     BoneBuilder& relStops(Arm::AngleType min_rad, Arm::AngleType max_rad);
@@ -113,7 +116,6 @@ public:
 
 private:
     BoneBuilder(std::shared_ptr<Arm::BoneDefinition> def);
-    BoneBuilder(BoneBuilder&& other);
 
     std::shared_ptr<Arm::BoneDefinition> m_def;
 };

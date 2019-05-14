@@ -5,6 +5,8 @@
 
 namespace rb {
 
+const Arm::AngleType Arm::PI = AngleType(M_PI);
+
 template<typename T> T Arm::roundCoord(Arm::AngleType val) {
     return T(round(val));
 }
@@ -100,11 +102,11 @@ void Bone::updatePos(Bone *prev) {
 }
 
 Arm::AngleType Arm::clampAng(Arm::AngleType val) {
-   val = fmod(val, M_PI*2);
-   if(val < -M_PI)
-        val += M_PI*2;
-   else if(val > M_PI)
-        val -= M_PI*2;
+   val = fmod(val, PI*2);
+   if(val < -PI)
+        val += PI*2;
+   else if(val > PI)
+        val -= PI*2;
    return val;
 }
 
@@ -148,7 +150,8 @@ bool Arm::solveIteration(Arm::CoordType target_x, Arm::CoordType target_y, bool&
     auto end_y = m_bones.back().y;
     CoordType bx, by;
     modified = false;
-    for(int32_t i = int32_t(m_bones.size())-1; i >= 0; --i) {
+    for(int32_t ii = int32_t(m_bones.size())-1; ii >= 0; --ii) {
+        const size_t i = size_t(ii);
         if(i == 0) {
             bx = by = 0;
         } else {
@@ -171,7 +174,7 @@ bool Arm::solveIteration(Arm::CoordType target_x, Arm::CoordType target_y, bool&
         AngleType cos_rot_ang, sin_rot_ang;
         AngleType end_target_mag = to_end_mag * to_target_mag;
 
-        if(end_target_mag <= 0.0001) {
+        if(end_target_mag <= AngleType(0.0001)) {
             cos_rot_ang = 1;
             sin_rot_ang = 0;
         } else {
@@ -201,7 +204,7 @@ bool Arm::solveIteration(Arm::CoordType target_x, Arm::CoordType target_y, bool&
             return true;
         }
 
-        modified = modified || abs(rot_ang)*to_end_mag > 0.000001;
+        modified = modified || abs(rot_ang)*to_end_mag > AngleType(0.000001);
     }
     return false;
 }
