@@ -5,8 +5,6 @@
 
 namespace rb {
 
-const Arm::AngleType Arm::PI = AngleType(M_PI);
-
 template<typename T> T Arm::roundCoord(Arm::AngleType val) {
     return T(round(val));
 }
@@ -63,51 +61,56 @@ BoneBuilder::~BoneBuilder() {
 
 }
 
-BoneBuilder& BoneBuilder::relStops(Arm::AngleType min_rad, Arm::AngleType max_rad) {
+BoneBuilder& BoneBuilder::relStops(Angle min_rad, Angle max_rad) {
     m_def->rel_min = min_rad;
     m_def->rel_max = max_rad;
     return *this;
 }
 
-BoneBuilder& BoneBuilder::absStops(Arm::AngleType min_rad, Arm::AngleType max_rad) {
+BoneBuilder& BoneBuilder::absStops(Angle min_rad, Angle max_rad) {
     m_def->abs_min = min_rad;
     m_def->abs_max = max_rad;
     return *this;
 }
 
-BoneBuilder& BoneBuilder::baseRelStops(Arm::AngleType min_rad, Arm::AngleType max_rad) {
+BoneBuilder& BoneBuilder::baseRelStops(Angle min_rad, Angle max_rad) {
     m_def->base_rel_min = min_rad;
     m_def->base_rel_max = max_rad;
     return *this;
 }
 
-BoneBuilder& BoneBuilder::calcServoAng(std::function<Arm::AngleType(Arm::AngleType)> func) {
+BoneBuilder& BoneBuilder::calcServoAng(std::function<Angle(Angle abs, Angle rel)> func) {
     m_def->calcServoAng = func;
     return *this;
 }
 
 void Bone::updatePos(Bone *prev) {
     if(prev != nullptr) {
-        angle = Arm::clampAng(prev->angle + relAngle);
+        absAngle = Arm::clamp(prev->absAngle + relAngle);
     } else {
-        angle = relAngle;
+        absAngle = relAngle;
     }
 
-    x = Arm::roundCoord(cos(angle) * def.length);
-    y = Arm::roundCoord(sin(angle) * def.length);
+    x = Arm::roundCoord(Arm::AngleType(cos(absAngle.rad()) * def.length));
+    y = Arm::roundCoord(Arm::AngleType(sin(absAngle.rad()) * def.length));
     if(prev != nullptr) {
         x += prev->x;
         y += prev->y;
     }
 }
 
-Arm::AngleType Arm::clampAng(Arm::AngleType val) {
-   val = fmod(val, PI*2);
-   if(val < -PI)
-        val += PI*2;
-   else if(val > PI)
-        val -= PI*2;
+Arm::AngleType Arm::clamp(Arm::AngleType val) {
+   static constexpr auto pi = Arm::AngleType(M_PI);
+   val = fmod(val, pi*2);
+   if(val < -pi)
+        val += pi*2;
+   else if(val > pi)
+        val -= pi*2;
    return val;
+}
+
+Angle Arm::clamp(Angle ang) {
+    return Angle::rad(Angle::Type(clamp(Arm::AngleType(ang.rad()))));
 }
 
 Arm::Arm(const Arm::Definition& def) : m_def(def) {
@@ -214,28 +217,29 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
     auto& me = m_bones[idx];
     auto& base = m_bones[0];
 
-    AngleType new_rel_ang = clampAng(me.relAngle + rot_ang);
-    new_rel_ang = std::max(me.def.rel_min, std::min(me.def.rel_max, new_rel_ang));
+    AngleType new_rel_ang = clamp(AngleType(me.relAngle.rad()) + rot_ang);
+    new_rel_ang = std::max(AngleType(me.def.rel_min.rad()),
+                           std::min(AngleType(me.def.rel_max.rad()), new_rel_ang));
 
     CoordType x = 0;
     CoordType y = 0;
     AngleType prev_ang = 0;
     for(size_t i = 0; i < m_bones.size(); ++i) {
         auto& b = m_bones[i];
-        auto angle = b.relAngle;
+        auto angle = AngleType(b.relAngle.rad());
         if(i == idx) {
             angle = new_rel_ang;
         }
-        angle = clampAng(prev_ang + angle);
+        angle = clamp(prev_ang + angle);
 
         // Check collision of the back helper arms with the body.
         if(i == idx) {
-            if(angle < b.def.abs_min) {
-                angle = b.def.abs_min;
-                new_rel_ang = clampAng(angle - prev_ang);
-            } else if(angle > b.def.abs_max){
-                angle = b.def.abs_max;
-                new_rel_ang = clampAng(angle - prev_ang);
+            if(angle < AngleType(b.def.abs_min.rad())) {
+                angle = AngleType(b.def.abs_min.rad());
+                new_rel_ang = clamp(angle - prev_ang);
+            } else if(angle > AngleType(b.def.abs_max.rad())) {
+                angle = AngleType(b.def.abs_max.rad());
+                new_rel_ang = clamp(angle - prev_ang);
             }
         }
 
@@ -253,10 +257,11 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
 
         // Check collision with the base arm
         if(i > 0) {
-            if(angle - base.angle < b.def.base_rel_min) {
-                base.angle = clampAng(angle - b.def.base_rel_min);
-            } else if(angle - base.angle > b.def.base_rel_max) {
-                base.angle = clampAng(angle - b.def.base_rel_max);
+            const auto diff = Angle::Type(angle) - base.absAngle.rad();
+            if(diff < b.def.base_rel_min.rad()) {
+                base.absAngle = Angle::rad(Angle::Type(clamp(angle - AngleType(b.def.base_rel_min.rad()))));
+            } else if(diff > b.def.base_rel_max.rad()) {
+                base.absAngle = Angle::rad(Angle::Type(clamp(angle - AngleType(b.def.base_rel_max.rad()))));
             }
         }
 
@@ -265,9 +270,14 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
         prev_ang = angle;
     }
 
-    auto res = clampAng(new_rel_ang - me.relAngle);
-    me.relAngle = new_rel_ang;
+    auto res = clamp(new_rel_ang - AngleType(me.relAngle.rad()));
+    me.relAngle = Angle::rad(Angle::Type(new_rel_ang));
     return res;
+}
+
+Bone::Bone(const Arm::BoneDefinition& def) : def(def) {
+    relAngle = -Angle::PI/2;
+    x = y = 0;
 }
 
 }; // namespace rb

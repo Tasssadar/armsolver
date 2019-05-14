@@ -28,12 +28,14 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     RBControl_arm.cpp \
-    armwidget.cpp
+    armwidget.cpp \
+    RBControl_angle.cpp
 
 HEADERS += \
         mainwindow.h \
     RBControl_arm.hpp \
-    armwidget.h
+    armwidget.h \
+    RBControl_angle.h
 
 FORMS += \
         mainwindow.ui

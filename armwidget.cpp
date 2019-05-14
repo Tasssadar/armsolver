@@ -11,18 +11,18 @@ ArmWidget::ArmWidget(QWidget *parent) : QWidget(parent), m_touched(false)
     builder.body(60, 110).armOffset(0, 20);
 
     auto b0 = builder.bone(110);
-    b0.relStops(-1.7f, 0);
-    b0.calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
-        return Arm::PI - (angle * -1) + 0.523599f;
+    b0.relStops(-95_deg, 0_deg);
+    b0.calcServoAng([](Angle absAngle, Angle) -> Angle {
+        return Angle::PI - (absAngle * -1) + 30_deg;
     });
 
     auto b1 = builder.bone(140);
-    b1.relStops(0.523599f, Arm::PI - 0.261799f)
-        .absStops(-0.35f, Arm::PI)
-        .baseRelStops(0.7f, 2.8f);
-    b1.calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
-        angle = Arm::clampAng(angle + Arm::PI*1.5f);
-        return Arm::PI - (angle * -1) + 0.423599f;
+    b1.relStops(30_deg, 165_deg)
+        .absStops(-20_deg, Angle::PI)
+        .baseRelStops(40_deg, 160_deg);
+    b1.calcServoAng([](Angle absAngle, Angle) -> Angle {
+        absAngle = Arm::clamp(absAngle + Angle::PI*1.5);
+        return Angle::PI - (absAngle * -1) + 25_deg;
     });
 
     m_arm = builder.build();
@@ -81,17 +81,17 @@ void ArmWidget::paintEvent(QPaintEvent *) {
     y+= 15;
     for(const auto& b : m_arm->bones()) {
         int x = 0;
-        p.drawText(x, y, QString::asprintf("%8.3f", b.angle));
+        p.drawText(x, y, QString::asprintf("%8.3f", b.absAngle.rad()));
         x += step;
-        p.drawText(x, y, QString::asprintf("%8.3f", Arm::deg(b.angle)));
+        p.drawText(x, y, QString::asprintf("%8.3f", b.absAngle.deg()));
         x += step;
-        p.drawText(x, y, QString::asprintf("%8.3f", b.relAngle));
+        p.drawText(x, y, QString::asprintf("%8.3f", b.relAngle.rad()));
         x += step;
-        p.drawText(x, y, QString::asprintf("%8.3f", Arm::deg(b.relAngle)));
+        p.drawText(x, y, QString::asprintf("%8.3f", b.relAngle.deg()));
         x += step;
-        p.drawText(x, y, QString::asprintf("%8.3f", b.servoAng()));
+        p.drawText(x, y, QString::asprintf("%8.3f", b.servoAng().rad()));
         x += step;
-        p.drawText(x, y, QString::asprintf("%8.3f", Arm::deg(b.servoAng())));
+        p.drawText(x, y, QString::asprintf("%8.3f", b.servoAng().deg()));
 
         y += 15;
     }
@@ -113,7 +113,7 @@ void ArmWidget::paintEvent(QPaintEvent *) {
     p.setPen(pen);
     for(const auto& b : m_arm->bones()) {
         p.save();
-        p.rotate(Arm::deg(b.relAngle));
+        p.rotate(b.relAngle.deg());
 
         p.fillRect(-5, -5, 10, 10, Qt::red);
         p.drawLine(0, 0, b.def.length*m_unit, 0);

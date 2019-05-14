@@ -1,11 +1,12 @@
-#ifndef RBCONTROL_ARM_HPP
-#define RBCONTROL_ARM_HPP
+#pragma once
 
 #include <vector>
 #include <stdint.h>
 #include <functional>
 #include <memory>
 #include <math.h>
+
+#include "RBControl_angle.h"
 
 namespace rb {
 
@@ -15,28 +16,24 @@ class Bone;
 class Arm
 {
     friend class ArmBuilder;
-    friend class BoneBuilder;
     friend class Bone;
 public:
-    typedef float AngleType;
     typedef int32_t CoordType;
-
-    static const AngleType PI;
 
     struct BoneDefinition {
         BoneDefinition() {
             length = 0;
-            rel_min = abs_min = base_rel_min = -PI;
-            rel_max = abs_max = base_rel_max = PI;
-            calcServoAng = [](AngleType angle) -> AngleType { return angle; };
+            rel_min = abs_min = base_rel_min = -Angle::PI;
+            rel_max = abs_max = base_rel_max = Angle::PI;
+            calcServoAng = [](Angle, Angle rel) -> Angle { return rel; };
         }
 
         CoordType length;
-        AngleType rel_min, rel_max;
-        AngleType abs_min, abs_max;
-        AngleType base_rel_min, base_rel_max;
+        Angle rel_min, rel_max;
+        Angle abs_min, abs_max;
+        Angle base_rel_min, base_rel_max;
 
-        std::function<AngleType(AngleType)> calcServoAng;
+        std::function<Angle(Angle, Angle)> calcServoAng;
     };
 
     struct Definition {
@@ -57,8 +54,7 @@ public:
         std::vector<BoneDefinition> bones;
     };
 
-    static AngleType clampAng(AngleType ang);
-    static AngleType deg(AngleType rad) { return rad * (180.0/M_PI); }
+    static Angle clamp(Angle ang);
 
     ~Arm();
 
@@ -68,6 +64,10 @@ public:
     const std::vector<Bone>& bones() const { return m_bones; }
 
 private:
+    typedef float AngleType;
+
+    static AngleType clamp(AngleType ang);
+
     Arm(const Definition &def);
 
     template<typename T = CoordType> static T roundCoord(AngleType val);
@@ -84,19 +84,13 @@ class Bone {
 public:
     const Arm::BoneDefinition& def;
 
-    Arm::AngleType relAngle;
-
+    Angle absAngle, relAngle;
     Arm::CoordType x, y;
-    Arm::AngleType angle;
 
-    Arm::AngleType servoAng() const { return def.calcServoAng(angle); }
+    Angle servoAng() const { return def.calcServoAng(absAngle, relAngle); }
 
 private:
-    Bone(const Arm::BoneDefinition& def) : def(def) {
-        relAngle = -M_PI/2;
-        x = y = 0;
-        angle = 0;
-    }
+    Bone(const Arm::BoneDefinition& def);
 
     void updatePos(Bone *prev);
 };
@@ -109,10 +103,10 @@ public:
     BoneBuilder(BoneBuilder&& other);
     ~BoneBuilder();
 
-    BoneBuilder& relStops(Arm::AngleType min_rad, Arm::AngleType max_rad);
-    BoneBuilder& absStops(Arm::AngleType min_rad, Arm::AngleType max_rad);
-    BoneBuilder& baseRelStops(Arm::AngleType min_rad, Arm::AngleType max_rad);
-    BoneBuilder& calcServoAng(std::function<Arm::AngleType(Arm::AngleType)> func);
+    BoneBuilder& relStops(Angle min, Angle max);
+    BoneBuilder& absStops(Angle min, Angle max);
+    BoneBuilder& baseRelStops(Angle min, Angle max);
+    BoneBuilder& calcServoAng(std::function<Angle(Angle abs, Angle rel)> func);
 
 private:
     BoneBuilder(std::shared_ptr<Arm::BoneDefinition> def);
@@ -138,4 +132,3 @@ private:
 
 }; // namespace rb
 
-#endif // RBCONTROL_ARM_HPP
