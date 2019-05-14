@@ -5,6 +5,12 @@
 
 namespace rb {
 
+template<typename T> T Arm::roundCoord(Arm::AngleType val) {
+    return T(round(val));
+}
+
+template<> float Arm::roundCoord(Arm::AngleType val) { return float(val); }
+template<> double Arm::roundCoord(Arm::AngleType val) { return double(val); }
 
 ArmBuilder::ArmBuilder() {
 
@@ -15,19 +21,19 @@ ArmBuilder::~ArmBuilder() {
 }
 
 
-ArmBuilder& ArmBuilder::body(uint16_t height_mm, uint16_t radius_mm) {
+ArmBuilder& ArmBuilder::body(Arm::CoordType height_mm, Arm::CoordType radius_mm) {
     m_def.body_height = height_mm;
     m_def.body_radius = radius_mm;
     return *this;
 }
 
-ArmBuilder& ArmBuilder::armOffset(uint16_t x_mm, uint16_t y_mm) {
+ArmBuilder& ArmBuilder::armOffset(Arm::CoordType x_mm, Arm::CoordType y_mm) {
     m_def.arm_offset_x = x_mm;
     m_def.arm_offset_y = y_mm;
     return *this;
 }
 
-BoneBuilder ArmBuilder::bone(uint16_t length_mm) {
+BoneBuilder ArmBuilder::bone(Arm::CoordType length_mm) {
     std::shared_ptr<Arm::BoneDefinition> bone(new Arm::BoneDefinition);
     bone->length = length_mm;
     m_bones.push_back(bone);
@@ -85,8 +91,8 @@ void Bone::updatePos(Bone *prev) {
         angle = relAngle;
     }
 
-    x = int32_t(round(cos(angle) * def.length));
-    y = int32_t(round(sin(angle) * def.length));
+    x = Arm::roundCoord(cos(angle) * def.length);
+    y = Arm::roundCoord(sin(angle) * def.length);
     if(prev != nullptr) {
         x += prev->x;
         y += prev->y;
@@ -113,7 +119,7 @@ Arm::~Arm() {
 
 }
 
-bool Arm::solve(int32_t target_x, int32_t target_y) {
+bool Arm::solve(Arm::CoordType target_x, Arm::CoordType target_y) {
     bool modified = false;
     for(size_t i = 0; i < 10; ++i) {
         if(solveIteration(target_x, target_y, modified))
@@ -125,7 +131,7 @@ bool Arm::solve(int32_t target_x, int32_t target_y) {
     return false;
 }
 
-bool Arm::solveIteration(int32_t target_x, int32_t target_y, bool& modified) {
+bool Arm::solveIteration(Arm::CoordType target_x, Arm::CoordType target_y, bool& modified) {
     Bone *prev = nullptr;
     for(size_t i = 0; i < m_bones.size(); ++i) {
         m_bones[i].updatePos(prev);
@@ -133,14 +139,14 @@ bool Arm::solveIteration(int32_t target_x, int32_t target_y, bool& modified) {
     }
 
     if(target_x < m_def.body_radius - m_def.arm_offset_x) {
-        target_y = std::min(target_y, int32_t(m_def.arm_offset_y));
+        target_y = std::min(target_y, m_def.arm_offset_y);
     } else {
-        target_y = std::min(target_y, int32_t(m_def.arm_offset_y + m_def.body_height));
+        target_y = std::min(target_y, CoordType(m_def.arm_offset_y + m_def.body_height));
     }
 
     auto end_x = m_bones.back().x;
     auto end_y = m_bones.back().y;
-    int32_t bx, by;
+    CoordType bx, by;
     modified = false;
     for(int32_t i = int32_t(m_bones.size())-1; i >= 0; --i) {
         if(i == 0) {
@@ -175,7 +181,6 @@ bool Arm::solveIteration(int32_t target_x, int32_t target_y, bool& modified) {
 
         // Clamp the cosine into range when computing the angle (might be out of range
         // due to floating point error).
-        qDebug() << end_target_mag << cos_rot_ang;
         AngleType rot_ang = acos(std::max(AngleType(-1), std::min(AngleType(1), cos_rot_ang)));
         if(sin_rot_ang < 0)
             rot_ang = -rot_ang;
@@ -186,14 +191,13 @@ bool Arm::solveIteration(int32_t target_x, int32_t target_y, bool& modified) {
         sin_rot_ang = sin(rot_ang);
 
         // Rotate the end effector position.
-        end_x = int32_t(round(bx + cos_rot_ang*to_end_x - sin_rot_ang*to_end_y));
-        end_y = int32_t(round(by + sin_rot_ang*to_end_x + cos_rot_ang*to_end_y));
+        end_x = roundCoord(bx + cos_rot_ang*to_end_x - sin_rot_ang*to_end_y);
+        end_y = roundCoord(by + sin_rot_ang*to_end_x + cos_rot_ang*to_end_y);
 
         // Check for termintation
         auto dist_x = target_x - end_x;
         auto dist_y = target_y - end_y;
-        qDebug() << "dist" << i << bx << by << end_x << end_y << dist_x*dist_x + dist_y*dist_y;
-        if(dist_x*dist_x + dist_y*dist_y <= 5*5) {
+        if(dist_x*dist_x + dist_y*dist_y <= 100) {
             return true;
         }
 
@@ -209,8 +213,8 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
     AngleType new_rel_ang = clampAng(me.relAngle + rot_ang);
     new_rel_ang = std::max(me.def.rel_min, std::min(me.def.rel_max, new_rel_ang));
 
-    int32_t x = 0;
-    int32_t y = 0;
+    CoordType x = 0;
+    CoordType y = 0;
     AngleType prev_ang = 0;
     for(size_t i = 0; i < m_bones.size(); ++i) {
         auto& b = m_bones[i];
@@ -230,10 +234,8 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
             }
         }
 
-        int32_t nx = int32_t(round(x + (cos(angle) * b.def.length)));
-        int32_t ny = int32_t(round(y + (sin(angle) * b.def.length)));
-
-        qDebug() << i << angle << nx << ny;
+        auto nx = roundCoord(x + (cos(angle) * b.def.length));
+        auto ny = roundCoord(y + (sin(angle) * b.def.length));
 
         if(nx < m_def.body_radius - m_def.arm_offset_x) {
             if(ny > m_def.arm_offset_y)

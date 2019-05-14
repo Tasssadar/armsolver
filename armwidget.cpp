@@ -11,7 +11,7 @@ ArmWidget::ArmWidget(QWidget *parent) : QWidget(parent), m_touched(false)
     builder.body(60, 110).armOffset(0, 20);
 
     builder.bone(110)
-            .relStops(-1.7, M_PI)
+            .relStops(-1.7, 0)
             .calcServoAng([](Arm::AngleType angle) -> Arm::AngleType {
         return M_PI - (angle * -1) + 0.523599;
     });

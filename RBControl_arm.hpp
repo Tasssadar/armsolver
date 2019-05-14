@@ -19,6 +19,7 @@ class Arm
     friend class Bone;
 public:
     typedef float AngleType;
+    typedef int32_t CoordType;
 
     struct BoneDefinition {
         BoneDefinition() {
@@ -28,7 +29,7 @@ public:
             calcServoAng = [](AngleType angle) -> AngleType { return angle; };
         }
 
-        uint16_t length;
+        CoordType length;
         AngleType rel_min, rel_max;
         AngleType abs_min, abs_max;
         AngleType base_rel_min, base_rel_max;
@@ -45,11 +46,11 @@ public:
             arm_offset_y = 0;
         }
 
-        uint16_t body_height;
-        uint16_t body_radius;
+        CoordType body_height;
+        CoordType body_radius;
 
-        uint16_t arm_offset_x;
-        uint16_t arm_offset_y;
+        CoordType arm_offset_x;
+        CoordType arm_offset_y;
 
         std::vector<BoneDefinition> bones;
     };
@@ -59,7 +60,7 @@ public:
 
     ~Arm();
 
-    bool solve(int32_t target_x, int32_t target_y);
+    bool solve(Arm::CoordType target_x, Arm::CoordType target_y);
 
     const Definition& definition() const { return m_def; }
     const std::vector<Bone>& bones() const { return m_bones; }
@@ -67,7 +68,9 @@ public:
 private:
     Arm(const Definition &def);
 
-    bool solveIteration(int32_t target_x, int32_t target_y, bool& modified);
+    template<typename T = CoordType> static T roundCoord(AngleType val);
+
+    bool solveIteration(CoordType target_x, CoordType target_y, bool& modified);
     AngleType rotateArm(size_t idx, AngleType rot_ang);
 
     const Definition m_def;
@@ -81,7 +84,7 @@ public:
 
     Arm::AngleType relAngle;
 
-    int32_t x, y;
+    Arm::CoordType x, y;
     Arm::AngleType angle;
 
     Arm::AngleType servoAng() const { return def.calcServoAng(angle); }
@@ -120,9 +123,9 @@ public:
     ArmBuilder();
     ~ArmBuilder();
 
-    ArmBuilder& body(uint16_t height_mm, uint16_t radius_mm);
-    ArmBuilder& armOffset(uint16_t x_mm, uint16_t y_mm);
-    BoneBuilder bone(uint16_t length_mm);
+    ArmBuilder& body(Arm::CoordType height_mm, Arm::CoordType radius_mm);
+    ArmBuilder& armOffset(Arm::CoordType x_mm, Arm::CoordType y_mm);
+    BoneBuilder bone(Arm::CoordType length_mm);
 
     std::unique_ptr<Arm> build();
 
