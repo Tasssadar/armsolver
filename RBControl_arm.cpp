@@ -140,6 +140,7 @@ bool Arm::solveIteration(Arm::CoordType target_x, Arm::CoordType target_y, bool&
         prev = &m_bones[i];
     }
 
+    // Move the target out of the robot's body
     if(target_x < m_def.body_radius - m_def.arm_offset_x) {
         target_y = std::min(target_y, m_def.arm_offset_y);
     } else {
@@ -227,6 +228,7 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
         }
         angle = clampAng(prev_ang + angle);
 
+        // Check collision of the back helper arms with the body.
         if(i == idx) {
             if(angle < b.def.abs_min) {
                 angle = b.def.abs_min;
@@ -240,6 +242,7 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
         auto nx = roundCoord(x + (cos(angle) * b.def.length));
         auto ny = roundCoord(y + (sin(angle) * b.def.length));
 
+        // Check collision with the body
         if(nx < m_def.body_radius - m_def.arm_offset_x) {
             if(ny > m_def.arm_offset_y)
                 return 0;
@@ -248,6 +251,7 @@ Arm::AngleType Arm::rotateArm(size_t idx, Arm::AngleType rot_ang) {
                 return 0;
         }
 
+        // Check collision with the base arm
         if(i > 0) {
             if(angle - base.angle < b.def.base_rel_min) {
                 base.angle = clampAng(angle - b.def.base_rel_min);
